@@ -12,6 +12,12 @@ def decrypt_aes_128_ecb(ctxt, key):
     message = decrypted_data
     return message
 
+
+def aes_ecb_decrypt(data,key):
+    cipher = AES.new(key, AES.MODE_ECB)
+    return pkcs7_unpad(cipher.decrypt(data))
+
+
 with open("data/input-3.txt") as file:
     data = file.read()
 

@@ -1,86 +1,55 @@
-import os
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-from math import ceil
-from random import randint
-from itertools import zip_longest
-backend = default_backend()
-
-def split_bytes_in_blocks(x, blocksize):
-    nb_blocks = ceil(len(x)/blocksize)
-    return [x[blocksize*i:blocksize*(i+1)] for i in range(nb_blocks)]
-
-def bxor(a, b, longest=True):
-    if longest:
-        return bytes([ x^y for (x, y) in zip_longest(a, b, fillvalue=0)])
-    else:
-        return bytes([ x^y for (x, y) in zip(a, b)])
-
-def pkcs7_padding(message, block_size):
-    padding_length = block_size - ( len(message) % block_size )
-    if padding_length == 0:
-        padding_length = block_size
-    padding = bytes([padding_length]) * padding_length
-    return message + padding
-
-def pkcs7_strip(data):
-    padding_length = data[-1]
-    return data[:- padding_length]
-
-def encrypt_aes_128_block(msg, key):
-    '''unpadded AES block encryption'''
-    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=backend)
-    encryptor = cipher.encryptor()
-    return encryptor.update(msg) + encryptor.finalize()
-
-def decrypt_aes_128_block(ctxt, key):
-    '''unpadded AES block decryption'''
-    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=backend)
-    decryptor = cipher.decryptor()
-    decrypted_data =  decryptor.update(ctxt) + decryptor.finalize()
-    return decrypted_data
-
-msg = os.urandom(16)
-key = os.urandom(16)
-ctxt = encrypt_aes_128_block(msg, key)
-msg_2 = decrypt_aes_128_block(ctxt, key)
+from base64 import b64decode
+from Crypto.Cipher import AES
+from cp_9 import pkcs7_pad, pkcs7_unpad
+from cp_7 import aes_ecb_decrypt
 
 
-def encrypt_aes_128_cbc(msg, iv, key):
-    result = b''
-    previous_ctxt_block = iv
-    padded_ptxt = pkcs7_padding(msg, block_size=16)
-    blocks = split_bytes_in_blocks(padded_ptxt, blocksize=16)
-                        
-    for block in blocks:
-        to_encrypt = bxor(block, previous_ctxt_block)
-        new_ctxt_block = encrypt_aes_128_block(to_encrypt, key)
-        result += new_ctxt_block
-        # for the next iteration
-        previous_ctxt_block = new_ctxt_block
-                                                                            
-    return result
+def aes_ecb_encrypt(data, key):
+    cipher = AES.new(key, AES.MODE_ECB)
+    return cipher.encrypt(pkcs7_pad(data, AES.block_size))
 
-def decrypt_aes_128_cbc(ctxt, iv, key):
-    result = b''
-    previous_ctxt_block = iv
-    blocks = split_bytes_in_blocks(ctxt, blocksize=16)
-                                                                                                
-    for block in blocks:
-        to_xor = decrypt_aes_128_block(block, key)
-        result += bxor(to_xor, previous_ctxt_block)
-        assert len(result) != 0
-        # for the next iteration
-        previous_ctxt_block = block
-    return pkcs7_strip(result)
-        
-for _ in range(5):
-    length = randint(5,50)
-    msg = os.urandom(length)
-    key = os.urandom(16)
-    iv = os.urandom(16)
-    ctxt = encrypt_aes_128_cbc(msg, iv, key)
-    print('message: ',msg)
-    print('decrypt: ',decrypt_aes_128_cbc(ctxt, iv, key))
-    assert decrypt_aes_128_cbc(ctxt, iv, key) == msg
-                                                                                                                                                                                        
+
+def xor_data(bin_data_1, bin_data_2):
+    return bytes([b1 ^ b2 for b1, b2 in zip(bin_data1,bin_data2)])
+
+
+def aes_cbc_encrypt(data, key, iv):
+    ciphertext = b''
+    prev = iv
+
+    for i in range(0, len(data), AES.block_size):
+        curr_plaintext_block = pkcs_pad(data[i:i + AES.block_size], AES.block_size)
+        block_cipher_input = xor_data(curr_plaintext_block,prev)
+        encrypted_block = aes_ecb_encrypt(block_cipher_input,key)
+        ciphertext += encrypted_block
+        prev = encrypted_block
+
+    return ciphertext
+
+
+def aes_cbc_decrypt(data,key,iv,unpad=True):
+    plaintext = b''
+    prev = iv
+
+    for i in range(0,len(data),AES.block_size):
+        curr_ciphertext_block = data[i:i + AES.block_size]
+        decrypted_block = aes_ecb_decrypt(curr_ciphertext_block,key)
+        plaintext += xor_data(prev,decrypted_block)
+        prev = curr_ciphertext_block
+
+    return pkcs7_unpad(plaintext) if unpad else plaintext
+
+
+def main():
+    iv = b'\x00' * AES.block_size
+    key = b'YELLOW SUBMARINE'
+    with open("input-5.txt") as input_file:
+        binary_data = b64decode(input_file.read())
+
+    print(aes_cbc_decrypt(binary_data, key, iv).decode().rstrip())
+
+    custom_input = b'Trying to decrypt something else to see if it works.'
+    assert aes_cbc_decrypt(aes_cbc_encrypt(custom_input,key,iv)) == custom_input
+
+if __name__ == '__main__':
+          main()
