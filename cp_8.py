@@ -1,4 +1,11 @@
 from binascii import hexlify, unhexlify
+from Crypto.Cipher.AES import block_size
+
+def count_aes_ecb_repetitions(ciphertext):
+    chunks = [ciphertext[i:i + block_size] for i in range(0, len(ciphertext), block_size)]
+    number_of_duplicates = len(chunks) - len(set(chunks))
+    return number_of_duplicates
+
 
 with open('data/input-4.txt') as f:
     ctxts = [unhexlify(line.strip()) for line in f]

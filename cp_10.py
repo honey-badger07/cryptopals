@@ -10,7 +10,7 @@ def aes_ecb_encrypt(data, key):
 
 
 def xor_data(bin_data_1, bin_data_2):
-    return bytes([b1 ^ b2 for b1, b2 in zip(bin_data1,bin_data2)])
+    return bytes([b1 ^ b2 for b1, b2 in zip(bin_data_1,bin_data_2)])
 
 
 def aes_cbc_encrypt(data, key, iv):
@@ -18,7 +18,7 @@ def aes_cbc_encrypt(data, key, iv):
     prev = iv
 
     for i in range(0, len(data), AES.block_size):
-        curr_plaintext_block = pkcs_pad(data[i:i + AES.block_size], AES.block_size)
+        curr_plaintext_block = pkcs7_pad(data[i:i + AES.block_size], AES.block_size)
         block_cipher_input = xor_data(curr_plaintext_block,prev)
         encrypted_block = aes_ecb_encrypt(block_cipher_input,key)
         ciphertext += encrypted_block
@@ -43,7 +43,7 @@ def aes_cbc_decrypt(data,key,iv,unpad=True):
 def main():
     iv = b'\x00' * AES.block_size
     key = b'YELLOW SUBMARINE'
-    with open("input-5.txt") as input_file:
+    with open("data/input-5.txt") as input_file:
         binary_data = b64decode(input_file.read())
 
     print(aes_cbc_decrypt(binary_data, key, iv).decode().rstrip())
