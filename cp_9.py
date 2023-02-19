@@ -24,7 +24,7 @@ def pkcs7_pad(message, block_size):
     return message + bytes([ch] * ch)
 
 
-def is_pkcs_padded(binary_data):
+def is_pkcs7_padded(binary_data):
     padding = binary_data[-binary_data[-1]:]
 
     return all(padding[b] == len(padding) for b in range(0, len(padding)))
